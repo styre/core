@@ -22,7 +22,7 @@ typedef struct st_tokenizer st_tokenizer_t;
 // http://www.w3.org/TR/html5/syntax.html#tokenization
 //
 enum st_tokenizer_state {
-    st_tokenizer_data_state,                                   // Ref. 8.2.4.1
+    st_tokenizer_data_state = 0,                               // Ref. 8.2.4.1
     st_tokenizer_character_reference_in_data_state,            // Ref. 8.2.4.2
     st_tokenizer_rcdata_state,                                 // Ref. 8.2.4.3
     st_tokenizer_character_reference_in_rcdata_state,          // Ref. 8.2.4.4
@@ -65,6 +65,24 @@ enum st_tokenizer_state {
 
     // TODO
 };
+
+//
+// Input types
+//
+typedef enum {
+    st_tokenizer_uninitialized_input = 0,
+    st_tokenizer_string_input,
+    st_tokenizer_file_input,
+    st_tokenizer_stream_input,
+} st_tokenizer_input_type_t;
+
+//
+// Input encodings
+//
+typedef enum {
+    st_tokenizer_uninitialized_encoding = 0,
+    st_tokenizer_encoding_utf8,
+} st_tokenizer_input_encoding_t;
 
 //
 // Callbacks

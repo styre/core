@@ -75,12 +75,33 @@
 // The tokenizer state object
 //
 struct st_tokenizer {
-    st_tokenizer_state_t state;         // Current state of the tokenizer
-    st_tokenizer_callbacks_t callbacks; // Callbacks method to call
-    void *ctx;                          // User context
+    st_tokenizer_state_t state;             // Current state of the tokenizer
+
+    st_tokenizer_callbacks_t callbacks;     // Callbacks method to call
+    void *ctx;                              // User context
+
+    st_tokenizer_input_type_t input_type;   // The input type
+    void *input_func;                       // Pointer to the input function
+    void *input_ctx;                        // Input context
+
+    uint8_t *buffer;                        // Input buffer
+    size_t buffer_size;                     // Size of the input buffer
+    size_t buffer_offset;                   // Current offset into the buffer
 };
 
 
+//
+// Helper methods to read input from the input stream
+//
+int st_tokenizer_next_character(st_tokenizer_t *tokenizer,
+        uint32_t *codepoint, size_t *bytes);
+
+int st_tokenizer_peek_character(st_tokenizer_t *tokenizer,
+        uint32_t *codepoint, size_t *bytes);
+
+//
+// Initialize a new tokenizer
+//
 int st_tokenizer_init(st_tokenizer_t **tokenizer,
         st_tokenizer_callbacks_t *callbacks, void *ctx)
 {
@@ -93,7 +114,6 @@ int st_tokenizer_init(st_tokenizer_t **tokenizer,
     memset(*tokenizer, 0, sizeof(**tokenizer));
 
     // Set initial values
-    (*tokenizer)->state = st_tokenizer_data_state;
     (*tokenizer)->callbacks = *callbacks;
     (*tokenizer)->ctx = ctx;
 
@@ -271,6 +291,41 @@ int st_tokenizer_utf8_string(st_tokenizer_t *tokenizer,
 
     // Call end of document callback
     tokenizer->callbacks.document_end(tokenizer, tokenizer->ctx);
+
+    return 0;
+}
+
+int st_tokenizer_next_character_string(st_tokenizer_t *tokenizer,
+        uint32_t *cp, size_t *bytes)
+{
+    return 0;
+}
+
+int st_tokenizer_next_character_file(st_tokenizer_t *tokenizer,
+        uint32_t *cp, size_t *bytes)
+{
+    return 0;
+}
+
+int st_tokenizer_next_character_stream(st_tokenizer_t *tokenizer,
+        uint32_t *cp, size_t *bytes)
+{
+    return 0;
+}
+
+int st_tokenizer_next_character(st_tokenizer_t *tokenizer,
+        uint32_t *cp, size_t *bytes)
+{
+    switch(tokenizer->input_type) {
+        case st_tokenizer_string_input:
+            return st_tokenizer_next_character_string(tokenizer, cp, bytes);
+        case st_tokenizer_file_input:
+            return st_tokenizer_next_character_file(tokenizer, cp, bytes);
+        case st_tokenizer_stream_input:
+            return st_tokenizer_next_character_stream(tokenizer, cp, bytes);
+        default:
+            return -1;
+    };
 
     return 0;
 }
