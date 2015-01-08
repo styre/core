@@ -27,6 +27,9 @@
 // End adapted from Chromium
 //
 
+#define EMIT_TOKEN()                                                           \
+    tokenizer->callbacks.token(tokenizer, &token, tokenizer->ctx);
+
 // Used when we reach an error. Takes an error message and calls the callback
 // method.
 #define EMIT_ERROR(message, code)                                              \
@@ -36,13 +39,34 @@
 #define EMIT_CHARACTER_TOKEN(code)                                             \
     token.type = st_token_type_character;                                      \
     token.character.codepoint = code;                                          \
-    tokenizer->callbacks.token(tokenizer, &token, tokenizer->ctx);             \
+    EMIT_TOKEN()
+
+#define APPEND_TO_TAG_TOKEN(codepoint)                                         \
+    token.tag.name[token.tag.len] = codepoint;                                 \
+    token.tag.len += 1;                                                        \
+
+#define OPEN_START_TAG_TOKEN(codepoint)                                        \
+    token.type = st_token_type_start_tag;                                      \
+    token.tag.len = 0;                                                         \
+    APPEND_TO_TAG_TOKEN(codepoint)
+
+#define OPEN_END_TAG_TOKEN(codepoint)                                          \
+    token.type = st_token_type_end_tag;                                        \
+    token.tag.len = 0;                                                         \
+    APPEND_TO_TAG_TOKEN(codepoint)
+
+#define IS_WHITESPACE(c) (c== ' ' || c == 0x0A || c == 0x09 || c == 0x0C)
+
+#define IS_ASCII_LOWER(codepoint) (codepoint >= 'a' && codepoint <= 'z')
+#define IS_ASCII_UPPER(codepoint) (codepoint >= 'A' && codepoint <= 'Z')
+#define TO_ASCII_LOWER(codepoint) (codepoint - 0x20)
 
 // Character shortcuts
 #define AMPERSAND               0x0026
 #define LESS_THAN               0x003C
 #define GREATER_THAN            0x003D
 #define NULL_CHARACTER          0x0000
+#define EXCLAMATION_POINT       0x0021
 #define FORWARD_SLASH           0x002F
 #define REPLACEMENT_CHARACTER   0xFFFD
 
@@ -126,7 +150,8 @@ int st_tokenizer_utf8_string(st_tokenizer_t *tokenizer,
 
 
             BEGIN_STATE(character_reference_in_data_state) {
-                EMIT_ERROR("Unsupported: Character reference in data state", -1);
+                EMIT_ERROR("Unsupported: Character reference in data state",
+                        -1);
             }
             END_STATE();
 
@@ -146,6 +171,73 @@ int st_tokenizer_utf8_string(st_tokenizer_t *tokenizer,
             }
             END_STATE();
 
+            BEGIN_STATE(character_reference_in_rcdata_state) {
+                EMIT_ERROR("Unsupported: Character reference in RCDATA state",
+                        -1);
+            }
+            END_STATE();
+
+            BEGIN_STATE(rawtext_state) {
+                EMIT_ERROR("Unsupported: Rawtext state", -1);
+            }
+            END_STATE();
+
+            BEGIN_STATE(script_data_state) {
+                EMIT_ERROR("Unsupported: Script data state", -1);
+            }
+            END_STATE();
+
+            BEGIN_STATE(plaintext_state) {
+                EMIT_ERROR("Unsupported: Plain text state", -1);
+            }
+            END_STATE();
+
+            BEGIN_STATE(tag_open_state) {
+                if (codepoint == '!') {
+                    SWITCH_TO(markup_declaration_open_state);
+                } else if (codepoint == '/') {
+                    SWITCH_TO(end_tag_open_state);
+                } else if (IS_ASCII_UPPER(codepoint)) {
+                    OPEN_START_TAG_TOKEN(TO_ASCII_LOWER(codepoint));
+                    SWITCH_TO(tag_name_state);
+                } else if (IS_ASCII_LOWER(codepoint)) {
+                    OPEN_START_TAG_TOKEN(codepoint);
+                    SWITCH_TO(tag_name_state);
+                } else if (codepoint == '?') {
+                    EMIT_ERROR("Parse error: invalid token ?", -1);
+                } else {
+                    EMIT_ERROR("Parse error: reached invalid token", -1);
+                }
+            }
+            END_STATE();
+
+            BEGIN_STATE(end_tag_open_state) {
+                if (IS_ASCII_UPPER(codepoint)) {
+                    OPEN_END_TAG_TOKEN(TO_ASCII_LOWER(codepoint));
+                    SWITCH_TO(tag_name_state);
+                } else if (IS_ASCII_LOWER(codepoint)) {
+                    OPEN_END_TAG_TOKEN(codepoint);
+                    SWITCH_TO(tag_name_state);
+                } else if (codepoint == '>') {
+                    EMIT_ERROR("Parse error: Empty end tag.", -1);
+                } else {
+                    EMIT_ERROR("Parse error: Invalid end tag.", -1);
+                }
+            }
+            END_STATE();
+
+            BEGIN_STATE(tag_name_state) {
+                if (IS_WHITESPACE(codepoint)) {
+                    SWITCH_TO(before_attribute_name_state);
+                } else if (codepoint == '/') {
+                    SWITCH_TO(self_closing_start_tag_state);
+                } else if (codepoint == '>') {
+                    EMIT_TOKEN();
+                    SWITCH_TO(data_state);
+                } else {
+                }
+            }
+            END_STATE();
 
             BEGIN_STATE(rcdata_less_than_sign_state) {
                 switch(codepoint) {

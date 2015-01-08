@@ -22,20 +22,48 @@ typedef struct st_token st_token_t;
 // http://www.w3.org/TR/html5/syntax.html#tokenization
 //
 enum st_tokenizer_state {
-    st_tokenizer_data_state,                                // Ref. 8.2.4.1
-    st_tokenizer_character_reference_in_data_state,         // Ref. 8.2.4.2
-    st_tokenizer_rcdata_state,                              // Ref. 8.2.4.3
-    st_tokenizer_character_reference_in_rcdata_state,       // Ref. 8.2.4.4
-    st_tokenizer_rawtext_state,                             // Ref. 8.2.4.5
-    st_tokenizer_script_data_state,                         // Ref. 8.2.4.6
-    st_tokenizer_plaintext_state,                           // Ref. 8.2.4.7
-    st_tokenizer_tag_open_state,                            // Ref. 8.2.4.8
-    st_tokenizer_end_tag_open_state,                        // Ref. 8.2.4.9
-    st_tokenizer_tag_name_state,                            // Ref. 8.2.4.10
-    st_tokenizer_rcdata_less_than_sign_state,               // Ref. 8.2.4.11
-    st_tokenizer_rcdata_end_tag_open_state,                 // Ref. 8.2.4.12
-    st_tokenizer_rcdata_end_tag_name_state,                 // Ref. 8.2.4.13
-    st_tokenizer_rawtext_less_than_sign_state,              // Ref. 8.2.4.14
+    st_tokenizer_data_state,                                   // Ref. 8.2.4.1
+    st_tokenizer_character_reference_in_data_state,            // Ref. 8.2.4.2
+    st_tokenizer_rcdata_state,                                 // Ref. 8.2.4.3
+    st_tokenizer_character_reference_in_rcdata_state,          // Ref. 8.2.4.4
+    st_tokenizer_rawtext_state,                                // Ref. 8.2.4.5
+    st_tokenizer_script_data_state,                            // Ref. 8.2.4.6
+    st_tokenizer_plaintext_state,                              // Ref. 8.2.4.7
+    st_tokenizer_tag_open_state,                               // Ref. 8.2.4.8
+    st_tokenizer_end_tag_open_state,                           // Ref. 8.2.4.9
+    st_tokenizer_tag_name_state,                               // Ref. 8.2.4.10
+    st_tokenizer_rcdata_less_than_sign_state,                  // Ref. 8.2.4.11
+    st_tokenizer_rcdata_end_tag_open_state,                    // Ref. 8.2.4.12
+    st_tokenizer_rcdata_end_tag_name_state,                    // Ref. 8.2.4.13
+    st_tokenizer_rawtext_less_than_sign_state,                 // Ref. 8.2.4.14
+    st_tokenizer_rawtext_end_tag_open_state,                   // Ref. 8.2.4.15
+    st_tokenizer_rawtext_end_tag_name_state,                   // Ref. 8.2.4.16
+    st_tokenizer_script_data_less_than_sign_state,             // Ref. 8.2.4.17
+    st_tokenizer_script_data_end_tag_open_state,               // Ref. 8.2.4.18
+    st_tokenizer_script_data_end_tag_name_state,               // Ref. 8.2.4.19
+    st_tokenizer_script_data_escape_start_state,               // Ref. 8.2.4.20
+    st_tokenizer_script_data_escape_start_dash_state,          // Ref. 8.2.4.21
+    st_tokenizer_script_data_escaped_state,                    // Ref. 8.2.4.22
+    st_tokenizer_script_data_escaped_dash_state,               // Ref. 8.2.4.23
+    st_tokenizer_script_data_escaped_dash_dash_state,          // Ref. 8.2.4.24
+    st_tokenizer_script_data_escaped_less_than_sign_state,     // Ref. 8.2.4.25
+
+    // TODO
+
+    st_tokenizer_before_attribute_name_state,                  // Ref. 8.2.4.34
+    st_tokenizer_attribute_name_state,                         // Ref. 8.2.4.35
+    st_tokenizer_after_attribute_name_state,                   // Ref. 8.2.4.36
+    st_tokenizer_before_attribute_value_state,                 // Ref. 8.2.4.37
+    st_tokenizer_attribute_value_double_quoted_state,          // Ref. 8.2.4.38
+    st_tokenizer_attribute_value_single_quoted_state,          // Ref. 8.2.4.39
+    st_tokenizer_attribute_value_unquoted_state,               // Ref. 8.2.4.40
+    st_tokenizer_character_reference_in_attribute_value_state, // Ref. 8.2.4.41
+    st_tokenizer_after_attribute_value_state,                  // Ref. 8.2.4.42
+    st_tokenizer_self_closing_start_tag_state,                 // Ref. 8.2.4.43
+    st_tokenizer_bogus_comment_state,                          // Ref. 8.2.4.44
+    st_tokenizer_markup_declaration_open_state,                // Ref. 8.2.4.45
+
+    // TODO
 };
 
 //
@@ -75,6 +103,8 @@ struct st_tokenizer_callbacks {
 enum st_token_type {
     st_token_type_character,
     st_token_type_eof,
+    st_token_type_start_tag,
+    st_token_type_end_tag,
 };
 
 // Charachter token type
@@ -82,11 +112,17 @@ typedef struct {
     uint32_t codepoint;
 } st_token_character_t;
 
+typedef struct {
+    uint32_t name[50]; // TODO: Fix to allow longer names
+    size_t len;
+} st_token_tag_t;
+
 // Structure for tokens
 struct st_token {
     st_token_type_t type;
     union {
         st_token_character_t character;
+        st_token_tag_t tag;
     };
 };
 
