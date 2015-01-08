@@ -9,13 +9,13 @@
 #include <stdlib.h>
 #include <stdint.h>
 
+#include "token.h"
+
 // typedefs
 typedef enum st_tokenizer_state st_tokenizer_state_t;
-typedef enum st_token_type st_token_type_t;
 
 typedef struct st_tokenizer_callbacks st_tokenizer_callbacks_t;
 typedef struct st_tokenizer st_tokenizer_t;
-typedef struct st_token st_token_t;
 
 //
 // The various states of the tokenizer. All references are to
@@ -94,38 +94,6 @@ struct st_tokenizer_callbacks {
 
     st_tokenizer_cb_error error;
 };
-
-//
-// Tokens
-//
-
-// Token types
-enum st_token_type {
-    st_token_type_character,
-    st_token_type_eof,
-    st_token_type_start_tag,
-    st_token_type_end_tag,
-};
-
-// Charachter token type
-typedef struct {
-    uint32_t codepoint;
-} st_token_character_t;
-
-typedef struct {
-    uint32_t name[50]; // TODO: Fix to allow longer names
-    size_t len;
-} st_token_tag_t;
-
-// Structure for tokens
-struct st_token {
-    st_token_type_t type;
-    union {
-        st_token_character_t character;
-        st_token_tag_t tag;
-    };
-};
-
 
 // Initialize a new tokenizer
 int st_tokenizer_init(st_tokenizer_t **tokenizer,
