@@ -27,3 +27,17 @@
 *.i*86
 *.x86_64
 *.hex
+
+# Temp files
+.DS_Store
+*.swp
+*.dSYM
+
+# Clang complete
+.clang_complete
+
+# Binary
+parser
+
+# HTML test files
+*.html
