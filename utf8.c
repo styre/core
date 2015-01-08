@@ -1,5 +1,7 @@
 #include "utf8.h"
 
+#include <stdlib.h>
+
 st_status next_codepoint(const uint8_t *in, size_t len,
         uint32_t *out, size_t *bytes)
 {
@@ -63,4 +65,40 @@ st_status next_codepoint(const uint8_t *in, size_t len,
 
     // Return 1 to indicate success
     return st_ok;
+}
+
+st_status encode_unicode(const uint32_t *in, size_t len,
+        uint8_t **out, size_t *bytes)
+{
+    *bytes = 0;
+    *out = malloc(len * 4);
+    if (*out == NULL)
+        return st_out_of_memory;
+
+    for (int i = 0; i < len; i++) {
+        if (in[i] < 0x80) {
+            *out[*bytes++] = in[i];
+        } else if (in[i] < 0x800) {
+            *out[*bytes++] = 192 + in[i] / 64;
+            *out[*bytes++] = 128 + in[i] % 64;
+        } else if ((in[i] - 0xd800u) < 0x800) {
+            goto error;
+        } else if (in[i] < 0x10000) {
+            *out[*bytes++] = 224 + in[i] / 4096;
+            *out[*bytes++] = 128 + in[i] / 64 % 64;
+            *out[*bytes++] = 128 + in[i] % 64;
+        } else if (in[i] < 0x110000) {
+            *out[*bytes++] = 240 + in[i] / 262144;
+            *out[*bytes++] = 128 + in[i] / 4096 % 64;
+            *out[*bytes++] = 128 + in[i] / 64 % 64;
+            *out[*bytes++] = 128 + in[i] % 64;
+        } else {
+            goto error;
+        }
+    }
+
+    return st_ok;
+
+error:
+    return st_invalid_unicode;
 }
