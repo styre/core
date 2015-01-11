@@ -77,25 +77,28 @@ st_status encode_unicode(const uint32_t *in, size_t len,
 
     for (int i = 0; i < len; i++) {
         if (in[i] < 0x80) {
-            *out[*bytes++] = in[i];
+            (*out)[(*bytes)++] = in[i];
         } else if (in[i] < 0x800) {
-            *out[*bytes++] = 192 + in[i] / 64;
-            *out[*bytes++] = 128 + in[i] % 64;
+            (*out)[(*bytes)++] = 192 + in[i] / 64;
+            (*out)[(*bytes)++] = 128 + in[i] % 64;
         } else if ((in[i] - 0xd800u) < 0x800) {
             goto error;
         } else if (in[i] < 0x10000) {
-            *out[*bytes++] = 224 + in[i] / 4096;
-            *out[*bytes++] = 128 + in[i] / 64 % 64;
-            *out[*bytes++] = 128 + in[i] % 64;
+            (*out)[(*bytes)++] = 224 + in[i] / 4096;
+            (*out)[(*bytes)++] = 128 + in[i] / 64 % 64;
+            (*out)[(*bytes)++] = 128 + in[i] % 64;
         } else if (in[i] < 0x110000) {
-            *out[*bytes++] = 240 + in[i] / 262144;
-            *out[*bytes++] = 128 + in[i] / 4096 % 64;
-            *out[*bytes++] = 128 + in[i] / 64 % 64;
-            *out[*bytes++] = 128 + in[i] % 64;
+            (*out)[(*bytes)++] = 240 + in[i] / 262144;
+            (*out)[(*bytes)++] = 128 + in[i] / 4096 % 64;
+            (*out)[(*bytes)++] = 128 + in[i] / 64 % 64;
+            (*out)[(*bytes)++] = 128 + in[i] % 64;
         } else {
             goto error;
         }
     }
+
+    // Add null character at the end
+    (*out)[*bytes++] = 0;
 
     return st_ok;
 
