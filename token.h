@@ -6,6 +6,7 @@
 
 // Token types
 typedef enum {
+    st_token_type_uninitialized,
     st_token_type_character,
     st_token_type_eof,
     st_token_type_start_tag,
@@ -20,6 +21,7 @@ typedef struct {
 // Tag token
 typedef struct {
     uint32_t name[50]; // TODO: Fix to allow longer names
+    uint8_t *encoded_name;
     size_t len;
 } st_token_tag_t;
 

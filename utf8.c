@@ -2,7 +2,7 @@
 
 #include <stdlib.h>
 
-st_status next_codepoint(const uint8_t *in, size_t len,
+st_status utf8_next_codepoint(const uint8_t *in, size_t len,
         uint32_t *out, size_t *bytes)
 {
     if (len == 0)
@@ -67,7 +67,7 @@ st_status next_codepoint(const uint8_t *in, size_t len,
     return st_ok;
 }
 
-st_status encode_unicode(const uint32_t *in, size_t len,
+st_status utf8_encode_unicode(const uint32_t *in, size_t len,
         uint8_t **out, size_t *bytes)
 {
     *bytes = 0;

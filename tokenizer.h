@@ -74,20 +74,24 @@ typedef enum {
     st_tokenizer_uninitialized_input = 0,
     st_tokenizer_string_input,
     st_tokenizer_file_input,
-    st_tokenizer_stream_input,
+    st_tokenizer_callback_input,
 } st_tokenizer_input_type_t;
-
-//
-// Input encodings
-//
-typedef enum {
-    st_tokenizer_uninitialized_encoding = 0,
-    st_tokenizer_encoding_utf8,
-} st_tokenizer_input_encoding_t;
 
 //
 // Callbacks
 //
+
+// Tokenizer input callback
+typedef st_status (*st_tokenizer_input_cb)(const uint8_t **buffer,
+        size_t *size, size_t *offset, void *ctx);
+
+// Function to call to get the next codepoint
+typedef st_status (*st_tokenizer_next_codepoint_cb)(const uint8_t *in,
+        size_t len, uint32_t *out, size_t *bytes);
+
+// Function to encode an array of codepoints
+typedef st_status (*st_tokenizer_encode_string_cb)(const uint32_t *in,
+        size_t len, uint8_t **out, size_t *bytes);
 
 // Start of document callback
 typedef void (*st_tokenizer_cb_document_start)(st_tokenizer_t *tokenizer,
@@ -118,8 +122,18 @@ struct st_tokenizer_callbacks {
 int st_tokenizer_init(st_tokenizer_t **tokenizer,
         st_tokenizer_callbacks_t *callbacks, void *ctx);
 
-int st_tokenizer_utf8_string(st_tokenizer_t *tokenizer,
-        const uint8_t *input, size_t len);
+// Set encoding functions
+st_status st_tokenizer_set_encoding_handler(st_tokenizer_t *t,
+        st_tokenizer_next_codepoint_cb next_codepoint,
+        st_tokenizer_encode_string_cb encode_func);
+
+st_status st_tokenizer_set_string(st_tokenizer_t *t,
+        const uint8_t *buf, size_t len);
+
+st_status st_tokenizer_encode_unicode(st_tokenizer_t *t,
+        uint32_t *in, size_t size, uint8_t **out, size_t *bytes);
+
+st_status st_tokenizer_run(st_tokenizer_t *t);
 
 // TODO
 //#ifdef __cplusplus
