@@ -254,7 +254,12 @@ int st_tokenizer_utf8_string(st_tokenizer_t *tokenizer,
                 } else if (codepoint == '>') {
                     EMIT_TOKEN();
                     SWITCH_TO(data_state);
+                } else if (IS_ASCII_UPPER(codepoint)) {
+                    APPEND_TO_TAG_TOKEN(TO_ASCII_LOWER(codepoint));
+                } else if (codepoint == 0) {
+                    EMIT_ERROR("Reached \\0 charachter", -1);
                 } else {
+                    APPEND_TO_TAG_TOKEN(codepoint);
                 }
             }
             END_STATE();
