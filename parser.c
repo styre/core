@@ -5,7 +5,7 @@
 #include "utf8.h"
 #include "tokenizer.h"
 
-const uint8_t xml[] = "<div><h1>å</h1>@</div>";
+const uint8_t xml[] = "<div class><h1>å</h1>@</div>";
 
 void tokenizer_document_start(st_tokenizer_t *tokenizer, void *ctx)
 {

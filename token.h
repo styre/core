@@ -18,11 +18,20 @@ typedef struct {
     uint32_t codepoint;
 } st_token_character_t;
 
+typedef struct {
+    uint32_t name[50]; // TODO
+    size_t name_len;
+    uint32_t value[50];
+    size_t value_len;
+} st_token_attribute_t;
+
 // Tag token
 typedef struct {
     uint32_t name[50]; // TODO: Fix to allow longer names
     uint8_t *encoded_name;
     size_t len;
+    st_token_attribute_t attrs[5]; // TODO
+    size_t attr_num;
 } st_token_tag_t;
 
 // Structure for tokens

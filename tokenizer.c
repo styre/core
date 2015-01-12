@@ -62,12 +62,28 @@
 #define OPEN_START_TAG_TOKEN(codepoint)                                        \
     token->type = st_token_type_start_tag;                                     \
     token->tag.len = 0;                                                        \
+    token->tag.attr_num = 0;                                                   \
     APPEND_TO_TAG_TOKEN(codepoint)
 
 #define OPEN_END_TAG_TOKEN(codepoint)                                          \
     token->type = st_token_type_end_tag;                                       \
     token->tag.len = 0;                                                        \
+    token->tag.attr_num = 0;                                                   \
     APPEND_TO_TAG_TOKEN(codepoint)
+
+#define APPEND_TO_ATTR_NAME(codepoint)                                         \
+    {                                                                       \
+        st_token_attribute_t *attr = &token->tag.attrs[token->tag.attr_num];   \
+        attr->name[attr->name_len] = codepoint;                                \
+        attr->name_len += 1;                                                   \
+    }
+
+
+#define OPEN_ATTR(codepoint)                                                   \
+    token->tag.attrs[token->tag.attr_num].name_len = 0;                        \
+    token->tag.attrs[token->tag.attr_num].value_len = 0;                       \
+    APPEND_TO_ATTR_NAME(codepoint);
+
 
 #define IS_WHITESPACE(c) (c== ' ' || c == 0x0A || c == 0x09 || c == 0x0C)
 
@@ -358,7 +374,58 @@ static st_status st_tokenizer_next_token(st_tokenizer_t *t, st_token_t *token) {
         // TODO
 
         BEGIN_STATE(before_attribute_name_state) {
-            EMIT_ERROR("Unsupported: Before attribute name state", st_err);
+            if (IS_WHITESPACE(t->codepoint)) {
+                SWITCH_TO(before_attribute_name_state);
+            } else if (t->codepoint == '/') {
+                SWITCH_TO(self_closing_start_tag_state);
+            } else if (t->codepoint == '>') {
+                EMIT_AND_RESUME_IN(data_state);
+            } else if (IS_ASCII_UPPER(t->codepoint)) {
+                OPEN_ATTR(TO_ASCII_LOWER(t->codepoint));
+                SWITCH_TO(attribute_name_state);
+            } else if (t->codepoint == 0) {
+                EMIT_ERROR("Reached \\0-charachter.", st_err);
+            } else if (t->codepoint == '"' || t->codepoint == '<' ||
+                    t->codepoint == '\'' || t->codepoint == '=') {
+                EMIT_ERROR("Invalid start of token name", st_err);
+            } else {
+                OPEN_ATTR(t->codepoint);
+                SWITCH_TO(attribute_name_state);
+            }
+        }
+        END_STATE();
+
+        BEGIN_STATE(attribute_name_state) {
+            if (IS_WHITESPACE(t->codepoint)) {
+                SWITCH_TO(after_attribute_name_state);
+            } else if (t->codepoint == '/') {
+                SWITCH_TO(self_closing_start_tag_state);
+            } else if (t->codepoint == '=') {
+                SWITCH_TO(before_attribute_value_state);
+            } else if (t->codepoint == '>') {
+                EMIT_AND_RESUME_IN(data_state);
+            } else if (IS_ASCII_UPPER(t->codepoint)) {
+                APPEND_TO_ATTR_NAME(TO_ASCII_LOWER(t->codepoint));
+                SWITCH_TO(attribute_name_state);
+            } else if (t->codepoint == 0) {
+                EMIT_ERROR("Reached \\0-character", st_err);
+            } else if (t->codepoint == '"' || t->codepoint == '\'' ||
+                    t->codepoint == '>') {
+                EMIT_ERROR("Invalid part of token name", st_err);
+            } else {
+                APPEND_TO_ATTR_NAME(t->codepoint);
+                SWITCH_TO(attribute_name_state);
+            }
+        }
+        END_STATE();
+
+        BEGIN_STATE(after_attribute_name_state) {
+            EMIT_ERROR("Unsupported: After attribute name state", st_err);
+        }
+        END_STATE();
+
+        BEGIN_STATE(before_attribute_value_state) {
+            EMIT_ERROR("Unsupported: Before attribute value state", st_err);
         }
         END_STATE();
 
