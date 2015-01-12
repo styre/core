@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 
+#include "styre.h"
 #include "token.h"
 
 // typedefs
