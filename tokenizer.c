@@ -47,48 +47,48 @@
 
 // Used when we reach an error. Takes an error message and calls the callback
 // method.
-#define EMIT_ERROR(message, code)                                              \
-    t->callbacks.error(t, message, t->ctx);                                    \
-    return code;
+#define EMIT_ERROR(message)                                                    \
+    if ((rc = st_token_set_error(token, t->codepoint, message, 0, 0))          \
+            != st_ok) {                                                        \
+        return rc;                                                             \
+    }                                                                          \
+    return st_ok;
 
 #define OPEN_CHARACTER_TOKEN(code)                                             \
-    token->type = st_token_type_character;                                     \
-    token->character.codepoint = code;
+    if ((rc = st_token_set_character(token, code)) == st_ok) {                 \
+        return rc;                                                             \
+    }
 
 #define APPEND_TO_TAG_TOKEN(codepoint)                                         \
-    token->tag.name[token->tag.len] = codepoint;                               \
-    token->tag.len += 1;
+    if ((rc = st_token_tag_append_name(token, codepoint)) != st_ok) {          \
+        return rc;                                                             \
+    }
 
 #define OPEN_START_TAG_TOKEN(codepoint)                                        \
-    token->type = st_token_type_start_tag;                                     \
-    token->tag.len = 0;                                                        \
-    token->tag.attr_num = 0;                                                   \
-    APPEND_TO_TAG_TOKEN(codepoint)
+    if ((rc = st_token_set_start_tag(token, codepoint)) != st_ok) {            \
+        return rc;                                                             \
+    }
 
 #define OPEN_END_TAG_TOKEN(codepoint)                                          \
-    token->type = st_token_type_end_tag;                                       \
-    token->tag.len = 0;                                                        \
-    token->tag.attr_num = 0;                                                   \
-    APPEND_TO_TAG_TOKEN(codepoint)
+    if ((rc = st_token_set_end_tag(token, codepoint)) != st_ok) {              \
+        return rc;                                                             \
+    }
 
 #define APPEND_TO_ATTR_NAME(codepoint)                                         \
-    {                                                                          \
-        st_token_attribute_t *attr = &token->tag.attrs[token->tag.attr_num];   \
-        attr->name[attr->name_len] = codepoint;                                \
-        attr->name_len += 1;                                                   \
+    if ((rc = st_token_attr_append_name(token, codepoint)) != st_ok) {         \
+        return rc;                                                             \
     }
 
 #define APPEND_TO_ATTR_VALUE(codepoint)                                        \
-    {                                                                          \
-        st_token_attribute_t *attr = &token->tag.attrs[token->tag.attr_num];   \
-        attr->value[attr->value_len] = codepoint;                              \
-        attr->value_len += 1;                                                  \
+    if ((rc = st_token_attr_append_value(token, codepoint)) != st_ok) {        \
+        return rc;                                                             \
     }
 
 
 #define OPEN_ATTR(codepoint)                                                   \
-    token->tag.attrs[token->tag.attr_num].name_len = 0;                        \
-    token->tag.attrs[token->tag.attr_num].value_len = 0;                       \
+    if ((rc = st_token_attr_add(token)) != st_ok) {                            \
+        return rc;                                                             \
+    }                                                                          \
     APPEND_TO_ATTR_NAME(codepoint);
 
 
@@ -211,18 +211,31 @@ st_status st_tokenizer_run(st_tokenizer_t *t)
         return st_invalid_config;
 
     st_status rc;
-    st_token_t token;
-    token.type = st_token_type_uninitialized;
+
+    // Initialize the token
+    st_token_t *token;
+    if ((rc = st_token_init(&token)) != st_ok) {
+        return rc;
+    }
+
+    assert(st_token_type(token) == st_token_type_uninitialized);
 
     // Call start of document callback
     t->callbacks.document_start(t, t->ctx);
 
     // Iterate through the input and emit tokens
-    while ((rc = st_tokenizer_next_token(t, &token)) == st_ok) {
+    while ((rc = st_tokenizer_next_token(t, token)) == st_ok) {
         // Emit token
-        t->callbacks.token(t, &token, t->ctx);
+        t->callbacks.token(t, token, t->ctx);
 
-        token.type = st_token_type_uninitialized;
+        // Check if we got an error token
+        if (st_token_type(token) == st_token_type_error) {
+            break;
+        }
+
+        st_token_reset(token);
+
+        assert(st_token_type(token) == st_token_type_uninitialized);
     }
 
     // If we did not reach the end of the file
@@ -257,7 +270,7 @@ static st_status st_tokenizer_next_token(st_tokenizer_t *t, st_token_t *token) {
                 case '<':
                     SWITCH_TO(tag_open_state);
                 case 0:
-                    EMIT_ERROR("Reached \\0-character.", st_err);
+                    EMIT_ERROR("Reached \\0-character.");
                 default:
                     OPEN_CHARACTER_TOKEN(t->codepoint);
                     EMIT_TOKEN();
@@ -267,8 +280,7 @@ static st_status st_tokenizer_next_token(st_tokenizer_t *t, st_token_t *token) {
 
 
         BEGIN_STATE(character_reference_in_data_state) {
-            EMIT_ERROR("Unsupported: Character reference in data state",
-                    -1);
+            EMIT_ERROR("Unsupported: Character reference in data state");
         }
         END_STATE();
 
@@ -280,7 +292,7 @@ static st_status st_tokenizer_next_token(st_tokenizer_t *t, st_token_t *token) {
                 case '<':
                     SWITCH_TO(rcdata_less_than_sign_state);
                 case 0:
-                    EMIT_ERROR("Reached \\0-character.", st_err);
+                    EMIT_ERROR("Reached \\0-character.");
                 default:
                     OPEN_CHARACTER_TOKEN(t->codepoint);
                     EMIT_TOKEN();
@@ -289,23 +301,22 @@ static st_status st_tokenizer_next_token(st_tokenizer_t *t, st_token_t *token) {
         END_STATE();
 
         BEGIN_STATE(character_reference_in_rcdata_state) {
-            EMIT_ERROR("Unsupported: Character reference in RCDATA state",
-                    -1);
+            EMIT_ERROR("Unsupported: Character reference in RCDATA state");
         }
         END_STATE();
 
         BEGIN_STATE(rawtext_state) {
-            EMIT_ERROR("Unsupported: Rawtext state", st_err);
+            EMIT_ERROR("Unsupported: Rawtext state");
         }
         END_STATE();
 
         BEGIN_STATE(script_data_state) {
-            EMIT_ERROR("Unsupported: Script data state", st_err);
+            EMIT_ERROR("Unsupported: Script data state");
         }
         END_STATE();
 
         BEGIN_STATE(plaintext_state) {
-            EMIT_ERROR("Unsupported: Plain text state", st_err);
+            EMIT_ERROR("Unsupported: Plain text state");
         }
         END_STATE();
 
@@ -321,9 +332,9 @@ static st_status st_tokenizer_next_token(st_tokenizer_t *t, st_token_t *token) {
                 OPEN_START_TAG_TOKEN(t->codepoint);
                 SWITCH_TO(tag_name_state);
             } else if (t->codepoint == '?') {
-                EMIT_ERROR("Parse error: invalid token ?", st_err);
+                EMIT_ERROR("Parse error: invalid token ?");
             } else {
-                EMIT_ERROR("Parse error: reached invalid token", st_err);
+                EMIT_ERROR("Parse error: reached invalid token");
             }
         }
         END_STATE();
@@ -336,9 +347,9 @@ static st_status st_tokenizer_next_token(st_tokenizer_t *t, st_token_t *token) {
                 OPEN_END_TAG_TOKEN(t->codepoint);
                 SWITCH_TO(tag_name_state);
             } else if (t->codepoint == '>') {
-                EMIT_ERROR("Parse error: Empty end tag.", st_err);
+                EMIT_ERROR("Parse error: Empty end tag.");
             } else {
-                EMIT_ERROR("Parse error: Invalid end tag.", st_err);
+                EMIT_ERROR("Parse error: Invalid end tag.");
             }
         }
         END_STATE();
@@ -354,7 +365,7 @@ static st_status st_tokenizer_next_token(st_tokenizer_t *t, st_token_t *token) {
                 APPEND_TO_TAG_TOKEN(TO_ASCII_LOWER(t->codepoint));
                 SWITCH_TO(tag_name_state);
             } else if (t->codepoint == 0) {
-                EMIT_ERROR("Reached \\0 charachter", st_err);
+                EMIT_ERROR("Reached \\0 charachter");
             } else {
                 APPEND_TO_TAG_TOKEN(t->codepoint);
                 SWITCH_TO(tag_name_state);
@@ -374,7 +385,7 @@ static st_status st_tokenizer_next_token(st_tokenizer_t *t, st_token_t *token) {
         END_STATE();
 
         BEGIN_STATE(rcdata_end_tag_open_state) {
-            EMIT_ERROR("Unsupported: RCDATA end tag open state", st_err);
+            EMIT_ERROR("Unsupported: RCDATA end tag open state");
         }
         END_STATE();
 
@@ -391,10 +402,10 @@ static st_status st_tokenizer_next_token(st_tokenizer_t *t, st_token_t *token) {
                 OPEN_ATTR(TO_ASCII_LOWER(t->codepoint));
                 SWITCH_TO(attribute_name_state);
             } else if (t->codepoint == 0) {
-                EMIT_ERROR("Reached \\0-charachter.", st_err);
+                EMIT_ERROR("Reached \\0-charachter.");
             } else if (t->codepoint == '"' || t->codepoint == '<' ||
                     t->codepoint == '\'' || t->codepoint == '=') {
-                EMIT_ERROR("Invalid start of token name", st_err);
+                EMIT_ERROR("Invalid start of token name");
             } else {
                 OPEN_ATTR(t->codepoint);
                 SWITCH_TO(attribute_name_state);
@@ -415,10 +426,10 @@ static st_status st_tokenizer_next_token(st_tokenizer_t *t, st_token_t *token) {
                 APPEND_TO_ATTR_NAME(TO_ASCII_LOWER(t->codepoint));
                 SWITCH_TO(attribute_name_state);
             } else if (t->codepoint == 0) {
-                EMIT_ERROR("Reached \\0-character", st_err);
+                EMIT_ERROR("Reached \\0-character");
             } else if (t->codepoint == '"' || t->codepoint == '\'' ||
                     t->codepoint == '>') {
-                EMIT_ERROR("Invalid part of token name", st_err);
+                EMIT_ERROR("Invalid part of token name");
             } else {
                 APPEND_TO_ATTR_NAME(t->codepoint);
                 SWITCH_TO(attribute_name_state);
@@ -427,7 +438,7 @@ static st_status st_tokenizer_next_token(st_tokenizer_t *t, st_token_t *token) {
         END_STATE();
 
         BEGIN_STATE(after_attribute_name_state) {
-            EMIT_ERROR("Unsupported: After attribute name state", st_err);
+            EMIT_ERROR("Unsupported: After attribute name state");
         }
         END_STATE();
 
@@ -441,12 +452,12 @@ static st_status st_tokenizer_next_token(st_tokenizer_t *t, st_token_t *token) {
             } else if (t->codepoint == '\'') {
                 SWITCH_TO(attribute_value_single_quoted_state);
             } else if (t->codepoint == 0) {
-                EMIT_ERROR("Reached \\0-character", st_err);
+                EMIT_ERROR("Reached \\0-character");
             } else if (t->codepoint == '>') {
-                EMIT_ERROR("Premature closing bracked", st_err);
+                EMIT_ERROR("Premature closing bracked");
             } else if (t->codepoint == '<' || t->codepoint == '=' ||
                     t->codepoint == '`') {
-                EMIT_ERROR("Invalid character", st_err);
+                EMIT_ERROR("Invalid character");
             } else {
                 APPEND_TO_ATTR_VALUE(t->codepoint);
                 SWITCH_TO(attribute_value_unquoted_state);
@@ -460,7 +471,7 @@ static st_status st_tokenizer_next_token(st_tokenizer_t *t, st_token_t *token) {
             } else if (t->codepoint == '&') {
                 SWITCH_TO(character_reference_in_attribute_value_state);
             } else if (t->codepoint == '0') {
-                EMIT_ERROR("Reached \\0-character", st_err);
+                EMIT_ERROR("Reached \\0-character");
             } else {
                 APPEND_TO_ATTR_VALUE(t->codepoint);
                 SWITCH_TO(attribute_value_double_quoted_state);
@@ -474,7 +485,7 @@ static st_status st_tokenizer_next_token(st_tokenizer_t *t, st_token_t *token) {
             } else if (t->codepoint == '&') {
                 SWITCH_TO(character_reference_in_attribute_value_state);
             } else if (t->codepoint == 0) {
-                EMIT_ERROR("Reached \\0-character", st_err);
+                EMIT_ERROR("Reached \\0-character");
             } else {
                 APPEND_TO_ATTR_VALUE(t->codepoint);
                 SWITCH_TO(attribute_value_single_quoted_state);
@@ -483,14 +494,13 @@ static st_status st_tokenizer_next_token(st_tokenizer_t *t, st_token_t *token) {
         END_STATE();
 
         BEGIN_STATE(attribute_value_unquoted_state) {
-            EMIT_ERROR("Unsupported: Attribute value (unquoted) state",
-                    st_err);
+            EMIT_ERROR("Unsupported: Attribute value (unquoted) state");
         }
         END_STATE();
 
         BEGIN_STATE(character_reference_in_attribute_value_state) {
             EMIT_ERROR("Unsupported: Character reference in attribute value"
-                    " state", st_err);
+                    " state");
         }
         END_STATE();
 
@@ -502,7 +512,7 @@ static st_status st_tokenizer_next_token(st_tokenizer_t *t, st_token_t *token) {
             } else if (t->codepoint == '>') {
                 EMIT_AND_RESUME_IN(data_state);
             } else {
-                EMIT_ERROR("Invalid character", st_err);
+                EMIT_ERROR("Invalid character");
             }
         }
         END_STATE();
@@ -510,20 +520,20 @@ static st_status st_tokenizer_next_token(st_tokenizer_t *t, st_token_t *token) {
         // TODO
 
         BEGIN_STATE(self_closing_start_tag_state) {
-            EMIT_ERROR("Unsupported: Self closing start tag state", st_err);
+            EMIT_ERROR("Unsupported: Self closing start tag state");
         }
         END_STATE();
 
         // TODO
 
         BEGIN_STATE(markup_declaration_open_state) {
-            EMIT_ERROR("Unsupported: Markup declaration open state", st_err);
+            EMIT_ERROR("Unsupported: Markup declaration open state");
         }
         END_STATE();
 
 
         default:
-            EMIT_ERROR("Unsupported state.", -1);
+            EMIT_ERROR("Unsupported state.");
 
     }
 

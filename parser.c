@@ -28,7 +28,8 @@ void print_tag_token(st_tokenizer_t *t, st_token_t *token, char *type) {
     uint8_t *name;
     size_t bytes;
 
-    if ((rc = st_tokenizer_encode_unicode(t, token->tag.name, token->tag.len,
+    if ((rc = st_tokenizer_encode_unicode(t, st_token_tag_name(token),
+                    st_token_tag_name_length(token),
                     &name, &bytes)) == st_ok) {
         fprintf(stderr, "Got %s tag token: %s\n", type, name);
     } else {
@@ -42,10 +43,10 @@ void print_tag_token(st_tokenizer_t *t, st_token_t *token, char *type) {
 
 void tokenizer_token(st_tokenizer_t *tokenizer, st_token_t *token, void *ctx)
 {
-    switch(token->type) {
+    switch(st_token_type(token)) {
         case st_token_type_character:
             fprintf(stderr, "Got character token: U+%04X\n",
-                    token->character.codepoint);
+                    st_token_codepoint(token));
             break;
         case st_token_type_eof:
             fprintf(stderr, "Reached end of string!\n");

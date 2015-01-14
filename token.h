@@ -1,46 +1,55 @@
 #ifndef token_h
 #define token_h
 
+#include "styre.h"
+
 #include <stdlib.h>
 #include <stdint.h>
 
+// Definitions
+typedef struct st_token st_token_t;
+
 // Token types
 typedef enum {
-    st_token_type_uninitialized,
+    st_token_type_uninitialized = 0,
+    st_token_type_error,
     st_token_type_character,
     st_token_type_eof,
     st_token_type_start_tag,
     st_token_type_end_tag,
 } st_token_type_t;
 
-// Charachter token type
-typedef struct {
-    uint32_t codepoint;
-} st_token_character_t;
+//
+// Create and modity
+//
 
-typedef struct {
-    uint32_t name[50]; // TODO
-    size_t name_len;
-    uint32_t value[50];
-    size_t value_len;
-} st_token_attribute_t;
+// Create a new token
+st_status st_token_init(st_token_t **token);
+st_status st_token_reset(st_token_t *token);
 
-// Tag token
-typedef struct {
-    uint32_t name[50]; // TODO: Fix to allow longer names
-    uint8_t *encoded_name;
-    size_t len;
-    st_token_attribute_t attrs[5]; // TODO
-    size_t attr_num;
-} st_token_tag_t;
+// Set token types
+st_status st_token_set_error(st_token_t *token, uint32_t codepoint,
+        const char *message, uint32_t line, uint32_t column);
+st_status st_token_set_character(st_token_t *token, uint32_t codepoint);
+st_status st_token_set_start_tag(st_token_t *token, uint32_t codepoint);
+st_status st_token_set_end_tag(st_token_t *token, uint32_t codepoint);
 
-// Structure for tokens
-typedef struct {
-    st_token_type_t type;
-    union {
-        st_token_character_t character;
-        st_token_tag_t tag;
-    };
-} st_token_t;
+
+// Append to the name of a tag token
+st_status st_token_tag_append_name(st_token_t *token, uint32_t codepoint);
+
+// Add attributes and attribute values
+st_status st_token_attr_add(st_token_t *token);
+st_status st_token_attr_append_name(st_token_t *token, uint32_t codepoint);
+st_status st_token_attr_append_value(st_token_t *token, uint32_t codepoint);
+
+//
+// Get token information
+//
+
+st_token_type_t st_token_type(st_token_t *token);
+uint32_t st_token_codepoint(st_token_t *token);
+uint32_t *st_token_tag_name(st_token_t *token);
+size_t st_token_tag_name_length(st_token_t *token);
 
 #endif
