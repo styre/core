@@ -72,10 +72,17 @@
     APPEND_TO_TAG_TOKEN(codepoint)
 
 #define APPEND_TO_ATTR_NAME(codepoint)                                         \
-    {                                                                       \
+    {                                                                          \
         st_token_attribute_t *attr = &token->tag.attrs[token->tag.attr_num];   \
         attr->name[attr->name_len] = codepoint;                                \
         attr->name_len += 1;                                                   \
+    }
+
+#define APPEND_TO_ATTR_VALUE(codepoint)                                        \
+    {                                                                          \
+        st_token_attribute_t *attr = &token->tag.attrs[token->tag.attr_num];   \
+        attr->value[attr->value_len] = codepoint;                              \
+        attr->value_len += 1;                                                  \
     }
 
 
@@ -425,7 +432,78 @@ static st_status st_tokenizer_next_token(st_tokenizer_t *t, st_token_t *token) {
         END_STATE();
 
         BEGIN_STATE(before_attribute_value_state) {
-            EMIT_ERROR("Unsupported: Before attribute value state", st_err);
+            if (IS_WHITESPACE(t->codepoint)) {
+                SWITCH_TO(before_attribute_value_state);
+            } else if (t->codepoint == '"') {
+                SWITCH_TO(attribute_value_double_quoted_state);
+            } else if (t->codepoint == '&') {
+                RECONSUME_IN(attribute_value_unquoted_state);
+            } else if (t->codepoint == '\'') {
+                SWITCH_TO(attribute_value_single_quoted_state);
+            } else if (t->codepoint == 0) {
+                EMIT_ERROR("Reached \\0-character", st_err);
+            } else if (t->codepoint == '>') {
+                EMIT_ERROR("Premature closing bracked", st_err);
+            } else if (t->codepoint == '<' || t->codepoint == '=' ||
+                    t->codepoint == '`') {
+                EMIT_ERROR("Invalid character", st_err);
+            } else {
+                APPEND_TO_ATTR_VALUE(t->codepoint);
+                SWITCH_TO(attribute_value_unquoted_state);
+            }
+        }
+        END_STATE();
+
+        BEGIN_STATE(attribute_value_double_quoted_state) {
+            if (t->codepoint == '"') {
+                SWITCH_TO(after_attribute_value_quoted_state);
+            } else if (t->codepoint == '&') {
+                SWITCH_TO(character_reference_in_attribute_value_state);
+            } else if (t->codepoint == '0') {
+                EMIT_ERROR("Reached \\0-character", st_err);
+            } else {
+                APPEND_TO_ATTR_VALUE(t->codepoint);
+                SWITCH_TO(attribute_value_double_quoted_state);
+            }
+        }
+        END_STATE();
+
+        BEGIN_STATE(attribute_value_single_quoted_state) {
+            if (t->codepoint == '\'') {
+                SWITCH_TO(after_attribute_value_quoted_state);
+            } else if (t->codepoint == '&') {
+                SWITCH_TO(character_reference_in_attribute_value_state);
+            } else if (t->codepoint == 0) {
+                EMIT_ERROR("Reached \\0-character", st_err);
+            } else {
+                APPEND_TO_ATTR_VALUE(t->codepoint);
+                SWITCH_TO(attribute_value_single_quoted_state);
+            }
+        }
+        END_STATE();
+
+        BEGIN_STATE(attribute_value_unquoted_state) {
+            EMIT_ERROR("Unsupported: Attribute value (unquoted) state",
+                    st_err);
+        }
+        END_STATE();
+
+        BEGIN_STATE(character_reference_in_attribute_value_state) {
+            EMIT_ERROR("Unsupported: Character reference in attribute value"
+                    " state", st_err);
+        }
+        END_STATE();
+
+        BEGIN_STATE(after_attribute_value_quoted_state) {
+            if (IS_WHITESPACE(t->codepoint)) {
+                SWITCH_TO(before_attribute_name_state);
+            } else if (t->codepoint == '/') {
+                SWITCH_TO(self_closing_start_tag_state);
+            } else if (t->codepoint == '>') {
+                EMIT_AND_RESUME_IN(data_state);
+            } else {
+                EMIT_ERROR("Invalid character", st_err);
+            }
         }
         END_STATE();
 

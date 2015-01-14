@@ -59,7 +59,7 @@ enum st_tokenizer_state {
     st_tokenizer_attribute_value_single_quoted_state,          // Ref. 8.2.4.39
     st_tokenizer_attribute_value_unquoted_state,               // Ref. 8.2.4.40
     st_tokenizer_character_reference_in_attribute_value_state, // Ref. 8.2.4.41
-    st_tokenizer_after_attribute_value_state,                  // Ref. 8.2.4.42
+    st_tokenizer_after_attribute_value_quoted_state,           // Ref. 8.2.4.42
     st_tokenizer_self_closing_start_tag_state,                 // Ref. 8.2.4.43
     st_tokenizer_bogus_comment_state,                          // Ref. 8.2.4.44
     st_tokenizer_markup_declaration_open_state,                // Ref. 8.2.4.45
