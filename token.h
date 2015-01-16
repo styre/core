@@ -49,7 +49,13 @@ st_status st_token_attr_append_value(st_token_t *token, uint32_t codepoint);
 
 st_token_type_t st_token_type(st_token_t *token);
 uint32_t st_token_codepoint(st_token_t *token);
-uint32_t *st_token_tag_name(st_token_t *token);
-size_t st_token_tag_name_length(st_token_t *token);
+
+st_status st_token_tag_name(st_token_t *token, uint8_t **buffer, size_t *bytes);
+
+size_t st_token_attr_num(st_token_t *token);
+st_status st_token_attr_name(st_token_t *token,
+        size_t attr_num, uint8_t **buffer, size_t *bytes);
+st_status st_token_attr_value(st_token_t *token,
+        size_t attr_num, uint8_t **buffer, size_t *bytes);
 
 #endif

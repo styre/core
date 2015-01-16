@@ -4,6 +4,7 @@
 #include <assert.h>
 
 #include "buffer.h"
+#include "utf8.h"
 
 #define STRLEN 10
 
@@ -122,6 +123,9 @@ st_status st_token_set_tag(st_token_t *token, uint32_t codepoint)
     if (rc != st_ok)
         return rc;
 
+    // Set initial tag name length
+    token->tag.len = 1;
+
     // Add the first character to the buffer
     return st_buffer_append(&token->tag.name, &codepoint, sizeof(codepoint));
 }
@@ -220,18 +224,56 @@ uint32_t st_token_codepoint(st_token_t *token)
     return token->character.codepoint;
 }
 
-uint32_t *st_token_tag_name(st_token_t *token)
+st_status st_token_tag_name(st_token_t *token, uint8_t **buffer, size_t *bytes)
 {
     assert(token->type == st_token_type_start_tag ||
             token->type == st_token_type_end_tag);
 
-    return st_buffer_offset_pointer(token->tag.name, 0);
+    // Get the pointer to the name
+    uint32_t *name = st_buffer_offset_pointer(token->tag.name, 0);
+
+    // Encode the tag to UTF-8
+    return utf8_encode_unicode(name, token->tag.len, buffer, bytes);
 }
 
-size_t st_token_tag_name_length(st_token_t *token)
+size_t st_token_attr_num(st_token_t *token)
 {
     assert(token->type == st_token_type_start_tag ||
             token->type == st_token_type_end_tag);
 
-    return token->tag.len;
+    return token->tag.num_attrs;
+}
+
+st_status st_token_attr_name(st_token_t *token,
+        size_t attr_num, uint8_t **buffer, size_t *bytes)
+{
+    assert(token->type == st_token_type_start_tag ||
+            token->type == st_token_type_end_tag);
+
+    // Get the attribute
+    st_token_attribute_t *attr = st_buffer_offset_pointer(
+            token->tag.attrs, attr_num * sizeof(st_token_attribute_t));
+
+    // Get the pointer to the name
+    uint32_t *name = st_buffer_offset_pointer(attr->name, 0);
+
+    // Encode the tag to UTF-8
+    return utf8_encode_unicode(name, attr->name_len, buffer, bytes);
+}
+
+st_status st_token_attr_value(st_token_t *token,
+        size_t attr_num, uint8_t **buffer, size_t *bytes)
+{
+    assert(token->type == st_token_type_start_tag ||
+            token->type == st_token_type_end_tag);
+
+    // Get the attribute
+    st_token_attribute_t *attr = st_buffer_offset_pointer(
+            token->tag.attrs, attr_num * sizeof(st_token_attribute_t));
+
+    // Get the pointer to the value
+    uint32_t *value = st_buffer_offset_pointer(attr->value, 0);
+
+    // Encode the tag to UTF-8
+    return utf8_encode_unicode(value, attr->value_len, buffer, bytes);
 }

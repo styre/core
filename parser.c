@@ -4,8 +4,9 @@
 
 #include "utf8.h"
 #include "tokenizer.h"
+#include "token.h"
 
-const uint8_t xml[] = "<div class=\"test\" id='hei'><h1>å</h1>@</div>";
+const uint8_t xml[] =  "<div class=\"test\" id='hei'><header></header><h1>å</h1>@</div>";
 
 void tokenizer_document_start(st_tokenizer_t *tokenizer, void *ctx)
 {
@@ -26,18 +27,48 @@ void print_tag_token(st_tokenizer_t *t, st_token_t *token, char *type) {
     st_status rc;
 
     uint8_t *name;
+    uint8_t *val;
     size_t bytes;
 
-    if ((rc = st_tokenizer_encode_unicode(t, st_token_tag_name(token),
-                    st_token_tag_name_length(token),
-                    &name, &bytes)) == st_ok) {
-        fprintf(stderr, "Got %s tag token: %s\n", type, name);
-    } else {
+    if ((rc = st_token_tag_name(token, &name, &bytes)) != st_ok) {
         fprintf(stderr, "Unable to encode token name\n");
+        if (rc != st_out_of_memory) {
+            free(name);
+        }
+        return;
     }
 
-    if (rc != st_out_of_memory) {
-        free(name);
+    fprintf(stderr, "Got %s token %s:\n", type, name);
+
+    free(name);
+
+    size_t attributes = st_token_attr_num(token);
+    if (attributes > 0) {
+        for (int i = 0; i < attributes; i++) {
+            if ((rc = st_token_attr_name(token, i, &name, &bytes)) != st_ok) {
+                if (rc != st_out_of_memory) {
+                    free(name);
+                }
+                fprintf(stderr, "Unable to get attribute name\n");
+                return;
+            }
+
+            if ((rc = st_token_attr_value(token, i, &val, &bytes)) != st_ok) {
+                if (rc != st_out_of_memory) {
+                    free(val);
+                }
+                fprintf(stderr, "Unable to get attribute value\n");
+                return;
+            }
+
+            fprintf(stderr, " %s=%s\n", name, val);
+
+            // Clean up memory
+            free(name);
+            free(val);
+        }
+    } else {
+        fprintf(stderr, " No attributes\n");
     }
 }
 
